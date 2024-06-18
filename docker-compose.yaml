@@ -1,0 +1,22 @@
+services:
+  client:
+    image: docker-mysql
+    container_name: client
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - database
+    restart: always
+  
+  database: 
+    image: mysql
+    container_name: mysql
+    volumes:
+      - db-volume:/var/lib/mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: test123
+
+volumes:
+  db-volume:
