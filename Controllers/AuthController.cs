@@ -12,12 +12,14 @@ public class AuthController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IConfiguration _configuration;
+    private readonly EmailService _emailService;
 
-    public AuthController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration)
+    public AuthController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, EmailService emailService)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
+        _emailService = emailService;
     }
 
     [HttpPost("register")]
@@ -49,6 +51,23 @@ public class AuthController : ControllerBase
         return Unauthorized();
     }
 
+    [HttpPost("forget-password")]
+    public async Task<IActionResult> ForgetPassword([FromBody] ForgetPasswordModel model)
+    {
+        var user = await _userManager.FindByEmailAsync(model.Email);
+        if (user == null)
+        {
+            return BadRequest("User not found.");
+        }
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var resetLink = Url.Action("ResetPassword", "Auth", new { token, email = user.Email }, Request.Scheme);
+
+        await _emailService.SendEmailAsync(user.Email, "Password Reset", $"<a href=\"{resetLink}\">Reset your password</a>");
+
+        return Ok(new { result = "Password reset link has been sent to your email." });
+    }
+
     private string GenerateJwtToken(ApplicationUser user)
     {
         var claims = new[]
@@ -71,6 +90,25 @@ public class AuthController : ControllerBase
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordModel model)
+    {
+        var user = await _userManager.FindByEmailAsync(model.Email);
+        if (user == null)
+        {
+            return BadRequest("User not found.");
+        }
+
+        var result = await _userManager.ResetPasswordAsync(user, model.Token, model.Password);
+        if (result.Succeeded)
+        {
+            return Ok(new { result = "Password has been reset successfully." });
+        }
+
+        return BadRequest(result.Errors);
+    }
+
 }
 
 public class RegisterModel
@@ -82,5 +120,18 @@ public class RegisterModel
 public class LoginModel
 {
     public string Email { get; set; }
+    public string Password { get; set; }
+}
+
+public class ForgetPasswordModel
+{
+    public string Email { get; set; }
+}
+
+
+public class ResetPasswordModel
+{
+    public string Email { get; set; }
+    public string Token { get; set; }
     public string Password { get; set; }
 }

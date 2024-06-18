@@ -55,6 +55,14 @@ public class ContactsController : ControllerBase
         return CreatedAtAction(nameof(GetContact), new { id = contact.Id }, contact);
     }
 
+    [HttpPost("bulk-insert")]
+    public async Task<IActionResult> BulkInsert([FromBody] List<Contact> contacts)
+    {
+        _context.Contacts.AddRange(contacts);
+        await _context.SaveChangesAsync();
+        return Ok(new { result = $"{contacts.Count} contacts inserted successfully!" });
+    }
+
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateContact(Guid id, [FromBody] Contact contact)
     {
